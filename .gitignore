@@ -4,6 +4,8 @@
 [Bb]in/
 [Oo]bj/
 [Bb]uild/
+publish-win/
+publish-linux/
 *.user
 *.suo
 *.cache
