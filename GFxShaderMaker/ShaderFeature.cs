@@ -4,13 +4,13 @@ using System.Xml;
 
 namespace GFxShaderMaker;
 
-public class ShaderFeature
+public class ShaderFeature : ShaderRestriction
 {
 	public string ID;
 
 	public IList<ShaderFeatureFlavor> Flavors;
 
-	public void ReadFromXml(XmlElement root)
+	public override void ReadFromXml(XmlElement root)
 	{
 		Flavors = new List<ShaderFeatureFlavor>();
 		ID = root.Attributes.GetNamedItem("id").Value;
@@ -22,6 +22,7 @@ public class ShaderFeature
 			shaderFeatureFlavor.ID = ShaderFeatureFlavor.EmptyID;
 			Flavors.Add(shaderFeatureFlavor);
 		}
+		base.ReadFromXml(root);
 		if (root.GetElementsByTagName("ShaderFeatureFlavor").Count == 0)
 		{
 			ShaderFeatureFlavor shaderFeatureFlavor2 = new ShaderFeatureFlavor();
@@ -31,9 +32,9 @@ public class ShaderFeature
 		}
 		foreach (XmlElement item in root.GetElementsByTagName("ShaderFeatureFlavor"))
 		{
-			ShaderFeatureFlavor shaderFeatureFlavor2 = new ShaderFeatureFlavor();
-			shaderFeatureFlavor2.ReadFromXml(item, root);
-			Flavors.Add(shaderFeatureFlavor2);
+			ShaderFeatureFlavor shaderFeatureFlavor3 = new ShaderFeatureFlavor();
+			shaderFeatureFlavor3.ReadFromXml(item, root);
+			Flavors.Add(shaderFeatureFlavor3);
 		}
 	}
 }

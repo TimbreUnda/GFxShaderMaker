@@ -6,13 +6,9 @@ using System.Linq;
 namespace GFxShaderMaker.Platforms;
 
 [Platform("PSVita", "Sony PS VITA Cg")]
-public class Platform_PSVITA : ShaderPlatform
+public class Platform_PSVITA : ShaderPlatformBinaryShaders
 {
-	private List<ShaderOutputType> OutputTypes = new List<ShaderOutputType>();
-
 	private List<ShaderVersion> ShaderVersions = new List<ShaderVersion>();
-
-	public override IEnumerable<ShaderOutputType> SupportedOutputTypes => OutputTypes;
 
 	public override List<ShaderVersion> RequestedShaderVersions => ShaderVersions;
 
@@ -25,10 +21,6 @@ public class Platform_PSVITA : ShaderPlatform
 			{
 				return "-cache ";
 			}
-			if (option.StartsWith("Release") || option.StartsWith("Shipping"))
-			{
-				return "-cache -fastprecision ";
-			}
 			return "-cache -fastprecision ";
 		}
 	}
@@ -37,7 +29,6 @@ public class Platform_PSVITA : ShaderPlatform
 
 	public Platform_PSVITA()
 	{
-		OutputTypes.Add(ShaderOutputType.Binary);
 		ShaderVersions.Add(new ShaderVersion_PSVITA(this));
 	}
 
@@ -66,12 +57,8 @@ public class Platform_PSVITA : ShaderPlatform
 		};
 	}
 
-	public override void CreateShaderOutput(ShaderOutputType type)
+	public override void CreateShaderOutput()
 	{
-		if (type != ShaderOutputType.Binary)
-		{
-			throw new Exception(type.ToString() + " output type not supported on " + base.PlatformName);
-		}
 		string f = "";
 		string executable = "";
 		string text = "";
@@ -121,16 +108,17 @@ public class Platform_PSVITA : ShaderPlatform
 			{
 				Environment.CurrentDirectory = currentDirectory;
 				string text3 = requestedShaderVersion2.ID + "_" + value2.ID;
-				string text4 = Path.Combine(PlatformObjDirectory, text3 + ".o");
+				string text4 = text3 + ".o";
+				string text5 = Path.Combine(PlatformObjDirectory, text4);
 				Environment.CurrentDirectory = PlatformObjDirectory;
-				string text5 = "-i " + text3 + ".gxp -o " + text3 + ".o -b2e PSP2,_binary_" + text3 + "_gxp,_binary_" + text3 + "_gxp_size";
+				string text6 = "-i " + text3 + ".gxp -o " + text3 + ".o -b2e PSP2,_binary_" + text3 + "_gxp,_binary_" + text3 + "_gxp_size";
 				text2 = text2 + " \"" + text4 + "\"";
-				if (launchProcess(text, text5, out stdout, out stderr) != 0)
+				if (launchProcess(text, text6, out stdout, out stderr) != 0)
 				{
-					Console.WriteLine("Error creating " + text4 + ":");
-					Console.WriteLine(text + " " + text5);
+					Console.WriteLine("Error creating " + text5 + ":");
+					Console.WriteLine(text + " " + text6);
 					Console.WriteLine(stderr);
-					throw new Exception("Error creating " + text4);
+					throw new Exception("Error creating " + text5);
 				}
 			}
 			Environment.CurrentDirectory = currentDirectory;
@@ -140,7 +128,7 @@ public class Platform_PSVITA : ShaderPlatform
 			Directory.CreateDirectory(Path.GetDirectoryName(PlatformBinaryLibrary));
 		}
 		File.Delete(PlatformBinaryLibrary);
-		if (launchProcess(executable, text2, out stdout, out stderr) != 0)
+		if (launchProcess(executable, text2, PlatformObjDirectory, out stdout, out stderr) != 0)
 		{
 			Console.WriteLine("Error creating " + PlatformBinaryLibrary + ":");
 			Console.WriteLine(stderr);
@@ -156,24 +144,30 @@ public class Platform_PSVITA : ShaderPlatform
 			ShaderVersion sVersion = ctdata.SVersion;
 			ShaderLinkedSource source = ctdata.Source;
 			string exe = ctdata.Exe;
-			string text = Path.Combine(ctdata.SVersion.SourceDirectory, sVersion.ID + "_" + source.ID);
-			string text2 = text + sVersion.SourceExtension;
-			if (!File.Exists(text2))
+			string text = Path.Combine(ctdata.SVersion.SourceDirectory, sVersion.GetShaderFilename(source));
+			if (!File.Exists(text))
 			{
-				StreamWriter streamWriter = File.CreateText(text2);
-				streamWriter.Write(source.SourceCode);
-				streamWriter.Close();
+				throw new Exception("Expected to find " + text + " shader source, but it did not exist.");
 			}
-			string text3 = Path.Combine(PlatformObjDirectory, sVersion.ID + "_" + source.ID) + ".gxp";
+			string file = Path.Combine(PlatformObjDirectory, sVersion.ID + "_" + source.ID) + ".gxp";
+			string path = file;
+			string file2 = text;
+			Uri uri = GreatestCommonPath(ref file2, ref file);
 			string shaderProfile = platform_PSVITA.GetShaderProfile(source.Pipeline);
-			string text4 = "-profile " + shaderProfile + " -o \"" + text3 + "\" " + platform_PSVITA.CGCExtraOptions + " \"" + text2 + "\"";
-			ctdata.ExitCode = launchProcess(exe, text4, out ctdata.StdOutput, out ctdata.StdError);
-			if (ctdata.ExitCode == 0 && !File.Exists(text3))
+			string text2 = "-profile " + shaderProfile + " -o \"" + file + "\" " + platform_PSVITA.CGCExtraOptions + " \"" + file2 + "\"";
+			ctdata.ExitCode = launchProcess(exe, text2, uri.LocalPath, out ctdata.StdOutput, out ctdata.StdError);
+			if (ctdata.ExitCode == 0 && !File.Exists(path))
 			{
 				ctdata.ExitCode = -255;
 			}
-			ctdata.ShaderFilename = text2;
-			ctdata.CommandLine = exe + " " + text4;
+			ctdata.ShaderFilename = text;
+			ctdata.CommandLine = exe + " " + text2;
 		}
+	}
+
+	protected override void writeHeaderPreamble(IndentStreamWriter headerFile)
+	{
+		headerFile.Write("#include <gxm/program.h> // SceGxmProgram\n\n");
+		base.writeHeaderPreamble(headerFile);
 	}
 }

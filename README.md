@@ -1,7 +1,22 @@
 # GFxShaderMaker
 
-Decompiled C# tool from Scaleform GFx SDK (`Bin/Tools/GFxShaderMaker/GFxShaderMaker.exe`).  
-Generates shader source for multiple graphics platforms (D3D9, D3D11, GL, GLES, PS3, Orbis, Vita, Wii U, X360).
+Decompiled C# tool from Scaleform GFx SDK (`Bin/Tools/GFxShaderMaker/GFxShaderMaker.exe`).
+Generates shader source for multiple graphics platforms.
+
+## Version
+
+Unknown latest version (Autodesk 2015 copyright in assembly metadata).
+Binary obtained from [SteamDB depot 1205481](https://steamdb.info/depot/1205481/).
+
+Compared to the older 4.2 SDK version (Microsoft 2011), this version adds support for:
+- D3D12
+- Metal
+- Vulkan
+- PS4 (Orbis renamed)
+- Xbox One (+ ADK, D3D12 variants)
+- UE3 / UE4 integration
+- GLES 3.00
+- SM 5.1
 
 ## Building
 
@@ -20,5 +35,5 @@ Run the executable or use the decompiled project; the original tool is a console
 
 ## Origin
 
-Source was produced by decompiling the original, non-obfuscated .NET assembly with [ILSpy](https://github.com/icsharpcode/ILSpy) / ilspycmd.  
-This repository is for reference and improvement only; keep Scaleform/Adobe licensing in mind when reusing code.
+Source was produced by decompiling the original, non-obfuscated .NET assembly with [ILSpy](https://github.com/icsharpcode/ILSpy) / ilspycmd.
+This repository is for reference and improvement only; keep Scaleform/Autodesk licensing in mind when reusing code.

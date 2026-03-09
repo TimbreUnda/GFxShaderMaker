@@ -6,21 +6,16 @@ using System.Linq;
 namespace GFxShaderMaker.Platforms;
 
 [Platform("WiiU", "Nintendo WiiU GLSL")]
-public class Platform_WiiU : ShaderPlatform
+public class Platform_WiiU : ShaderPlatformBinaryShaders
 {
-	private List<ShaderOutputType> OutputTypes = new List<ShaderOutputType>();
-
 	private List<ShaderVersion> ShaderVersions = new List<ShaderVersion>();
-
-	public override IEnumerable<ShaderOutputType> SupportedOutputTypes => OutputTypes;
 
 	public override List<ShaderVersion> RequestedShaderVersions => ShaderVersions;
 
-	public string SDKEnvironmentVariable => "CAFE_ROOT_DOS";
+	public string SDKEnvironmentVariable => "CAFE_ROOT";
 
 	public Platform_WiiU()
 	{
-		OutputTypes.Add(ShaderOutputType.Binary);
 		ShaderVersions.Add(new WiiU_Version(this));
 	}
 
@@ -54,22 +49,16 @@ public class Platform_WiiU : ShaderPlatform
 	protected override void WriteBinarySource(StreamWriter sourceFile)
 	{
 		sourceFile.WriteLine("\r\n#include <cafe/gx2.h>\r\n\r\ntypedef struct _GFDLoopVar\r\n{\r\n    u32 reg[GX2_NUM_LOOP_VAR_U32_WORDS];\r\n} GFDLoopVar;\r\n\r\n\r\n");
-		sourceFile.WriteLine("namespace Scaleform { namespace Render { namespace " + PlatformBase + " {\n\n");
 		base.WriteBinarySource(sourceFile);
-		sourceFile.WriteLine("}}}; // Scaleform::Render::" + PlatformBase + "\n\n");
 	}
 
-	public override void CreateShaderOutput(ShaderOutputType type)
+	public override void CreateShaderOutput()
 	{
-		if (type != ShaderOutputType.Binary)
-		{
-			throw new Exception(type.ToString() + " output type not supported on " + base.PlatformName);
-		}
 		string f = "";
-		string text = Environment.GetEnvironmentVariable(SDKEnvironmentVariable);
-		if (string.IsNullOrEmpty(text))
+		string text = LocateCafeSDK();
+		if (text == null)
 		{
-			text = "C:\\CAFE_SDK";
+			throw new Exception("Could not locate Cafe SDK (must set environment variable CAFE_ROOT).");
 		}
 		if (!string.IsNullOrEmpty(text))
 		{
@@ -93,28 +82,46 @@ public class Platform_WiiU : ShaderPlatform
 		CreateBinarySource();
 	}
 
+	private string LocateCafeSDK()
+	{
+		string environmentVariable = Environment.GetEnvironmentVariable(SDKEnvironmentVariable + "_DOS");
+		if (!string.IsNullOrEmpty(environmentVariable) && Directory.Exists(environmentVariable))
+		{
+			return environmentVariable;
+		}
+		environmentVariable = Environment.GetEnvironmentVariable(SDKEnvironmentVariable);
+		if (!string.IsNullOrEmpty(environmentVariable) && Directory.Exists(environmentVariable))
+		{
+			return environmentVariable;
+		}
+		environmentVariable = "C:\\CAFE_SDK";
+		if (!string.IsNullOrEmpty(environmentVariable) && Directory.Exists(environmentVariable))
+		{
+			return environmentVariable;
+		}
+		return null;
+	}
+
 	protected override void CompileSingleShaderImpl(CompileThreadData ctdata)
 	{
 		if (ctdata != null)
 		{
 			Platform_WiiU platform_WiiU = ctdata.This as Platform_WiiU;
-			ShaderVersion sVersion = ctdata.SVersion;
+			WiiU_Version wiiU_Version = ctdata.SVersion as WiiU_Version;
 			ShaderLinkedSource source = ctdata.Source;
 			string exe = ctdata.Exe;
-			string path = sVersion.ID + "_" + source.ID;
-			string text = Path.Combine(ctdata.SVersion.SourceDirectory, path);
-			string text2 = text + sVersion.SourceExtension;
-			if (!File.Exists(text2))
+			string text = Path.Combine(ctdata.SVersion.SourceDirectory, wiiU_Version.GetShaderFilename(source));
+			if (!File.Exists(text))
 			{
-				StreamWriter streamWriter = File.CreateText(text2);
-				streamWriter.Write(source.SourceCode);
-				streamWriter.Close();
+				throw new Exception("Expected to find " + text + " shader source, but it did not exist.");
 			}
 			string shaderProfile = platform_WiiU.GetShaderProfile(source.Pipeline);
-			string text3 = "-" + shaderProfile + " \"" + text2 + "\" -oh \"" + text + ".h\"";
-			ctdata.ExitCode = launchProcess(exe, text3, out ctdata.StdOutput, out ctdata.StdError);
-			ctdata.ShaderFilename = text2;
-			ctdata.CommandLine = exe + " " + text3;
+			string shaderOutputFilename = wiiU_Version.GetShaderOutputFilename(source);
+			File.Delete(shaderOutputFilename);
+			string text2 = "-" + shaderProfile + " \"" + text + "\" -oh \"" + shaderOutputFilename + "\"";
+			ctdata.ExitCode = launchProcess(exe, text2, out ctdata.StdOutput, out ctdata.StdError);
+			ctdata.ShaderFilename = text;
+			ctdata.CommandLine = exe + " " + text2;
 		}
 	}
 
@@ -125,5 +132,11 @@ public class Platform_WiiU : ShaderPlatform
 			ShaderPipeline.PipelineType.Fragment => "p", 
 			_ => "v", 
 		};
+	}
+
+	protected override void writeHeaderPreamble(IndentStreamWriter headerFile)
+	{
+		headerFile.Write("#include <cafe/gx2.h> // GX2PixelShader/GX2VertexShader\n\n");
+		base.writeHeaderPreamble(headerFile);
 	}
 }

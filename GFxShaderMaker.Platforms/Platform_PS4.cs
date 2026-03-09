@@ -7,43 +7,42 @@ using System.Text.RegularExpressions;
 
 namespace GFxShaderMaker.Platforms;
 
-[Platform("Orbis", "Sony Orbis PSSL")]
-public class Platform_Orbis : ShaderPlatform
+[Platform("PS4", "Sony PS4 PSSL")]
+public class Platform_PS4 : ShaderPlatformBinaryShaders
 {
 	private List<ShaderVersion> ShaderVersions = new List<ShaderVersion>();
 
-	private List<ShaderOutputType> OutputTypes = new List<ShaderOutputType>();
-
-	internal string PSSLExtraOptions => "";
+	internal string PSSLExtraOptions => "-cache -cachedir \"" + PlatformObjDirectory + "\"";
 
 	public override List<ShaderVersion> RequestedShaderVersions => ShaderVersions;
 
-	public override IEnumerable<ShaderOutputType> SupportedOutputTypes => OutputTypes;
+	protected virtual string PS4EnvironmentVariable => "SCE_ORBIS_SDK_DIR";
 
-	protected virtual string OrbisEnvironmentVariable => "SCE_ORBIS_SDK_DIR";
-
-	public Platform_Orbis()
+	public Platform_PS4()
 	{
-		ShaderVersions.Add(new ShaderVersion_Orbis(this));
-		OutputTypes.Add(ShaderOutputType.Binary);
+		ShaderVersions.Add(new ShaderVersion_PS4(this));
 	}
 
-	public override void CreateShaderOutput(ShaderOutputType type)
+	public override void CreateShaderOutput()
 	{
-		if (type != ShaderOutputType.Binary)
-		{
-			throw new Exception(type.ToString() + " output type not supported on " + base.PlatformName);
-		}
 		string text = "";
 		string text2 = "";
 		string fileName = "";
-		string environmentVariable = Environment.GetEnvironmentVariable(OrbisEnvironmentVariable);
+		string environmentVariable = Environment.GetEnvironmentVariable(PS4EnvironmentVariable);
 		if (!string.IsNullOrEmpty(environmentVariable))
 		{
 			IEnumerable<string> files = Directory.GetFiles(environmentVariable, "orbis-psslc.exe", SearchOption.AllDirectories);
 			if (files.Count() > 0)
 			{
 				text = files.First();
+			}
+			if (string.IsNullOrEmpty(text))
+			{
+				files = Directory.GetFiles(environmentVariable, "orbis-wave-psslc.exe", SearchOption.AllDirectories);
+				if (files.Count() > 0)
+				{
+					text = files.First();
+				}
 			}
 			files = Directory.GetFiles(environmentVariable, "orbis-ar.exe", SearchOption.AllDirectories);
 			if (files.Count() <= 0)
@@ -60,7 +59,7 @@ public class Platform_Orbis : ShaderPlatform
 		}
 		if (string.IsNullOrEmpty(text))
 		{
-			throw new Exception("Could not locate orbis-psslc.exe - not found in Orbis installation directory.");
+			throw new Exception("Could not locate orbis-psslc.exe - not found in PS4 installation directory.");
 		}
 		if (!Directory.Exists(PlatformObjDirectory))
 		{
@@ -83,11 +82,12 @@ public class Platform_Orbis : ShaderPlatform
 			foreach (ShaderLinkedSource value4 in requestedShaderVersion2.LinkedSourceDuplicates.Values)
 			{
 				Environment.CurrentDirectory = currentDirectory;
-				string text4 = Path.Combine(PlatformObjDirectory, requestedShaderVersion2.ID + "_" + value4.ID + ".o");
+				string text4 = requestedShaderVersion2.ID + "_" + value4.ID + ".o";
+				string text5 = Path.Combine(PlatformObjDirectory, text4);
 				Environment.CurrentDirectory = PlatformObjDirectory;
-				string text5 = "-I binary -O elf64-x86-64-freebsd -B i386 " + requestedShaderVersion2.ID + "_" + value4.ID + ".sb " + requestedShaderVersion2.ID + "_" + value4.ID + ".o";
+				string text6 = "-I binary -O elf64-x86-64-freebsd -B i386 " + requestedShaderVersion2.ID + "_" + value4.ID + ".sb " + requestedShaderVersion2.ID + "_" + value4.ID + ".o";
 				text3 = text3 + " \"" + text4 + "\"";
-				ProcessStartInfo processStartInfo = new ProcessStartInfo(text2, text5);
+				ProcessStartInfo processStartInfo = new ProcessStartInfo(text2, text6);
 				processStartInfo.ErrorDialog = false;
 				processStartInfo.CreateNoWindow = true;
 				processStartInfo.UseShellExecute = false;
@@ -98,10 +98,10 @@ public class Platform_Orbis : ShaderPlatform
 				process.WaitForExit();
 				if (process.ExitCode != 0)
 				{
-					Console.WriteLine("Error creating " + text4 + ":");
-					Console.WriteLine(text2 + " " + text5);
+					Console.WriteLine("Error creating " + text5 + ":");
+					Console.WriteLine(text2 + " " + text6);
 					Console.WriteLine(value);
-					throw new Exception("Error creating " + text4);
+					throw new Exception("Error creating " + text5);
 				}
 			}
 			Environment.CurrentDirectory = currentDirectory;
@@ -117,6 +117,7 @@ public class Platform_Orbis : ShaderPlatform
 		processStartInfo2.UseShellExecute = false;
 		processStartInfo2.RedirectStandardError = true;
 		processStartInfo2.RedirectStandardOutput = true;
+		processStartInfo2.WorkingDirectory = PlatformObjDirectory;
 		Process process2 = Process.Start(processStartInfo2);
 		string value2 = process2.StandardError.ReadToEnd();
 		process2.WaitForExit();
@@ -132,28 +133,25 @@ public class Platform_Orbis : ShaderPlatform
 	{
 		if (ctdata != null)
 		{
-			Platform_Orbis platform_Orbis = ctdata.This as Platform_Orbis;
+			Platform_PS4 platform_PS = ctdata.This as Platform_PS4;
 			ShaderVersion sVersion = ctdata.SVersion;
 			ShaderLinkedSource source = ctdata.Source;
 			string exe = ctdata.Exe;
-			string text = Path.Combine(ctdata.SVersion.SourceDirectory, source.ID);
-			string text2 = text + sVersion.SourceExtension;
-			if (!File.Exists(text2))
+			string text = Path.Combine(ctdata.SVersion.SourceDirectory, sVersion.GetShaderFilename(source));
+			if (!File.Exists(text))
 			{
-				StreamWriter streamWriter = File.CreateText(text2);
-				streamWriter.Write(source.SourceCode);
-				streamWriter.Close();
+				throw new Exception("Expected to find " + text + " shader source, but it did not exist.");
 			}
-			string text3 = Path.Combine(PlatformObjDirectory, sVersion.ID + "_" + source.ID) + ".sb";
-			string shaderProfile = platform_Orbis.GetShaderProfile(source.Pipeline);
-			string text4 = "-entry main -profile " + shaderProfile + " -o \"" + text3 + "\" " + platform_Orbis.PSSLExtraOptions + " \"" + text2 + "\"";
-			ctdata.ExitCode = launchProcess(exe, text4, out ctdata.StdOutput, out ctdata.StdError);
-			if (ctdata.ExitCode == 0 && !File.Exists(text3))
+			string text2 = Path.Combine(PlatformObjDirectory, sVersion.ID + "_" + source.ID) + ".sb";
+			string shaderProfile = platform_PS.GetShaderProfile(source.Pipeline);
+			string text3 = "-entry main -profile " + shaderProfile + " -o \"" + text2 + "\" " + platform_PS.PSSLExtraOptions + " \"" + text + "\"";
+			ctdata.ExitCode = launchProcess(exe, text3, out ctdata.StdOutput, out ctdata.StdError);
+			if (ctdata.ExitCode == 0 && !File.Exists(text2))
 			{
 				ctdata.ExitCode = -255;
 			}
-			ctdata.ShaderFilename = text2;
-			ctdata.CommandLine = exe + " " + text4;
+			ctdata.ShaderFilename = text;
+			ctdata.CommandLine = exe + " " + text3;
 		}
 	}
 

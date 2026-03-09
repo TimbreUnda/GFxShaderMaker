@@ -5,7 +5,7 @@ using System.Xml;
 
 namespace GFxShaderMaker;
 
-public class ShaderSource
+public class ShaderSource : ShaderRestriction
 {
 	public string ID;
 
@@ -17,11 +17,7 @@ public class ShaderSource
 
 	public string CodeOnly;
 
-	public List<string> Platforms;
-
-	public List<string> Versions;
-
-	public void ReadFromXml(XmlElement sourceNode)
+	public override void ReadFromXml(XmlElement sourceNode)
 	{
 		ID = sourceNode.GetAttribute("id");
 		switch (sourceNode.GetAttribute("pipeline"))
@@ -45,8 +41,6 @@ public class ShaderSource
 			PipelineType = ShaderPipeline.PipelineType.Compute;
 			break;
 		}
-		Platforms = ShaderPlatform.SplitStringToList("platform", sourceNode, null);
-		Versions = ShaderPlatform.SplitStringToList("version", sourceNode, null);
 		RawSource = sourceNode.InnerText;
 		int num = RawSource.IndexOf('{');
 		int num2 = RawSource.LastIndexOf('}');
@@ -65,5 +59,6 @@ public class ShaderSource
 				Variables.Add(shaderVariable);
 			}
 		}
+		base.ReadFromXml(sourceNode);
 	}
 }

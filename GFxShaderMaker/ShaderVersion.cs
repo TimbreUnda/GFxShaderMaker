@@ -50,7 +50,7 @@ public abstract class ShaderVersion
 
 	public virtual uint MaxBatchCount => 24u;
 
-	public string SourceDirectory => Path.Combine(CommandLineParser.GetOption(CommandLineParser.Options.OutputDirectory), "Shaders");
+	public string SourceDirectory => Platform.PlatformObjDirectory;
 
 	public List<ShaderVariable> UniqueUniformList
 	{
@@ -111,15 +111,15 @@ public abstract class ShaderVersion
 		ShaderSources.Clear();
 		foreach (KeyValuePair<string, ShaderPipeline.PipelineType> key2 in dictionary.Keys)
 		{
-			List<ShaderSource> value = dictionary[key2];
-			ShaderSource shaderSource2 = value.Find((ShaderSource s) => s.Versions.Contains(ID));
+			List<ShaderSource> list = dictionary[key2];
+			ShaderSource shaderSource2 = list.Find((ShaderSource s) => s.Versions.Contains(ID));
 			if (shaderSource2 == null)
 			{
-				shaderSource2 = value.Find((ShaderSource s) => s.Platforms.Contains(Platform.PlatformName));
+				shaderSource2 = list.Find((ShaderSource s) => s.Platforms.Contains(Platform.PlatformName));
 			}
 			if (shaderSource2 == null)
 			{
-				shaderSource2 = value.Find((ShaderSource s) => s.Platforms.Count == 0 && s.Versions.Count == 0);
+				shaderSource2 = list.Find((ShaderSource s) => s.Platforms.Count == 0 && s.Versions.Count == 0);
 			}
 			if (shaderSource2 != null)
 			{
@@ -128,7 +128,7 @@ public abstract class ShaderVersion
 		}
 	}
 
-	public void CreatePermutations()
+	public virtual void CreatePermutations()
 	{
 		List<ShaderLinkedSource> list = new List<ShaderLinkedSource>();
 		foreach (ShaderGroup shaderGroup in Platform.ShaderGroups)
@@ -227,11 +227,11 @@ public abstract class ShaderVersion
 					string linkedSrcName = c + permutationName;
 					foreach (List<ShaderLinkedSource> value4 in dictionary.Values)
 					{
-						ShaderLinkedSource current = value4.Find((ShaderLinkedSource s) => s.ID == linkedSrcName);
-						if (current != null)
+						ShaderLinkedSource shaderLinkedSource = value4.Find((ShaderLinkedSource s) => s.ID == linkedSrcName);
+						if (shaderLinkedSource != null)
 						{
 							hashedPipelineSrcs.Add(value4.First());
-							list3.Add(current);
+							list3.Add(shaderLinkedSource);
 							break;
 						}
 					}
@@ -307,63 +307,45 @@ public abstract class ShaderVersion
 			return;
 		}
 		uint num = 0u;
-		uint num2 = 0u;
 		foreach (ShaderVariable item in linkedSrc.VariableList.FindAll((ShaderVariable var) => var.VarType == ShaderVariable.VariableType.Variable_Uniform))
 		{
-			if (item.ElementCount == 16)
+			item.Semantic = "vfuniforms:" + num;
+			num += item.RegisterCount;
+			if (item.RegisterCountPerElement != 1)
 			{
-				item.Semantic = "vfmuniforms:" + num2;
-				num2++;
-			}
-			else
-			{
-				item.Semantic = "vfuniforms:" + num;
-				num += item.RegisterCount;
+				throw new Exception("ShaderMaker currently does not deal properly with attributes that use more than one register per element.ShaderName = " + linkedSrc.ID + ", variable = " + item.ID + ", registers = " + item.RegisterCountPerElement);
 			}
 		}
 		foreach (ShaderVariable item2 in linkedSrc.VariableList.FindAll((ShaderVariable var) => var.VarType == ShaderVariable.VariableType.Variable_Uniform))
 		{
 			item2.VarType = ShaderVariable.VariableType.Variable_VirtualUniform;
 			string[] array = item2.Semantic.Split(":".ToCharArray());
-			uint num3 = ((array[0] == "vfuniforms") ? num : num2);
-			linkedSrc.SourceCode = Regex.Replace(linkedSrc.SourceCode, "\\b" + item2.ID + "\\b", array[0] + "[vbatch * " + num3 + " + " + array[1].ToString() + BatchRoundOffString + "]");
+			uint num2 = num;
+			linkedSrc.SourceCode = Regex.Replace(linkedSrc.SourceCode, "\\b" + item2.ID + "\\b", array[0] + "[vbatch * " + num2 + " + " + array[1].ToString() + BatchRoundOffString + "]");
 		}
 		linkedSrc.SourceCode = Regex.Replace(linkedSrc.SourceCode, "(vfuniforms\\s*\\[vbatch[^\\]]+)\\]\\s*\\[", "$1 + ");
-		if (num2 != 0)
+		if (num != 0)
 		{
 			ShaderVariable shaderVariable = new ShaderVariable();
 			shaderVariable.VarType = ShaderVariable.VariableType.Variable_Uniform;
-			shaderVariable.ID = "vfmuniforms";
-			shaderVariable.Type = "float4x4";
+			shaderVariable.ID = "vfuniforms";
+			shaderVariable.Type = "float4";
 			shaderVariable.Semantic = "";
-			shaderVariable.ArraySize = num2 * MaxBatchCount;
+			shaderVariable.ArraySize = num * MaxBatchCount;
 			linkedSrc.VariableList.Add(shaderVariable);
-		}
-		if (num != 0)
-		{
 			ShaderVariable shaderVariable2 = new ShaderVariable();
-			shaderVariable2.VarType = ShaderVariable.VariableType.Variable_Uniform;
-			shaderVariable2.ID = "vfuniforms";
-			shaderVariable2.Type = "float4";
-			shaderVariable2.Semantic = "";
-			shaderVariable2.ArraySize = num * MaxBatchCount;
+			shaderVariable2.VarType = ShaderVariable.VariableType.Variable_Attribute;
+			shaderVariable2.ID = "vbatch";
+			shaderVariable2.Type = BatchIndexType;
+			shaderVariable2.Semantic = "INSTANCE";
 			linkedSrc.VariableList.Add(shaderVariable2);
 		}
-		if (num2 != 0 || num != 0)
+		ShaderVariable shaderVariable3 = linkedSrc.VariableList.Find((ShaderVariable var) => var.VarType == ShaderVariable.VariableType.Variable_Attribute && var.Semantic.StartsWith("factor", StringComparison.InvariantCultureIgnoreCase));
+		ShaderVariable shaderVariable4 = linkedSrc.VariableList.Find((ShaderVariable var) => var.ID == "vbatch");
+		if (shaderVariable3 != null && shaderVariable4 != null)
 		{
-			ShaderVariable shaderVariable3 = new ShaderVariable();
-			shaderVariable3.VarType = ShaderVariable.VariableType.Variable_Attribute;
-			shaderVariable3.ID = "vbatch";
-			shaderVariable3.Type = BatchIndexType;
-			shaderVariable3.Semantic = "INSTANCE";
-			linkedSrc.VariableList.Add(shaderVariable3);
-		}
-		ShaderVariable shaderVariable4 = linkedSrc.VariableList.Find((ShaderVariable var) => var.VarType == ShaderVariable.VariableType.Variable_Attribute && var.Semantic.StartsWith("factor", StringComparison.InvariantCultureIgnoreCase));
-		ShaderVariable shaderVariable5 = linkedSrc.VariableList.Find((ShaderVariable var) => var.ID == "vbatch");
-		if (shaderVariable4 != null && shaderVariable5 != null)
-		{
-			linkedSrc.VariableList.Remove(shaderVariable5);
-			linkedSrc.SourceCode = linkedSrc.SourceCode.Replace(shaderVariable5.ID, shaderVariable4.ID + ".b*255.01f");
+			linkedSrc.VariableList.Remove(shaderVariable4);
+			linkedSrc.SourceCode = linkedSrc.SourceCode.Replace(shaderVariable4.ID, shaderVariable3.ID + ".b*255.01f");
 		}
 	}
 
@@ -390,5 +372,25 @@ public abstract class ShaderVersion
 	public virtual void WriteBinaryShaderSource(StreamWriter file)
 	{
 		throw new NotImplementedException("WriteBinaryShaderSource");
+	}
+
+	public virtual void WriteBinaryShaderDataFile()
+	{
+		throw new NotImplementedException("WriteBinaryShaderDataFile");
+	}
+
+	public virtual string GetShaderFilename(ShaderLinkedSource src)
+	{
+		return ID + "_" + src.ID + SourceExtension;
+	}
+
+	public virtual string GetShaderDuplicateFilename(ShaderLinkedSource src)
+	{
+		return ID + "_" + src.SourceCodeDuplicateID + SourceExtension;
+	}
+
+	public virtual string GetSourceCodeContent(ShaderLinkedSource src)
+	{
+		return src.SourceCode;
 	}
 }

@@ -76,6 +76,11 @@ internal class ShaderVersion_SM30 : ShaderVersion_D3DCommon
 		text = text + linkedSrc.SourceCode + "}\n";
 		text = text.Replace("lowpf", "float");
 		text = Regex.Replace(text, "\\bdiscard\\b", "clip(-1)");
-		return Regex.Replace(text, "tex2Dlod\\s*\\(([^,]+),([^,]+),(.+)\\)", "tex2Dlod( $1, float4( ($2), 0.0, $3 ) )", RegexOptions.IgnoreCase);
+		text = Regex.Replace(text, "tex2Dlod\\s*\\(([^,]+),([^,]+),(.+)\\)", "tex2Dlod( $1, float4( ($2), 0.0, $3 ) )", RegexOptions.IgnoreCase);
+		if (linkedSrc.Flags.Contains("DynamicLoop"))
+		{
+			text = Regex.Replace(text, "tex2D\\s*\\((?'P0'" + ShaderVersion.SubexprRegex + "),(?'P1'" + ShaderVersion.SubexprRegex + ")\\)", "tex2Dlod(${P0}, float4((${P1}).xy, 0.0f, 0.0f))");
+		}
+		return text;
 	}
 }

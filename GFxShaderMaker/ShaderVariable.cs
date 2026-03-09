@@ -25,13 +25,13 @@ public class ShaderVariable : IEquatable<ShaderVariable>, IComparable<ShaderVari
 
 	public uint ArraySize = 1u;
 
-	public object ExtraData = null;
+	public object ExtraData;
 
-	public bool SamplerType = false;
+	public bool SamplerType;
 
-	private bool BaseSet = false;
+	private bool BaseSet;
 
-	private uint BaseReg = 0u;
+	private uint BaseReg;
 
 	public uint RegisterCount
 	{
@@ -50,7 +50,11 @@ public class ShaderVariable : IEquatable<ShaderVariable>, IComparable<ShaderVari
 		get
 		{
 			Match match = Regex.Match(Type, "(\\d)x?(\\d)?$");
-			return (match.Groups[2].Length == 0) ? 1u : Convert.ToUInt32(match.Groups[2].Value);
+			if (match.Groups[2].Length != 0)
+			{
+				return Convert.ToUInt32(match.Groups[2].Value);
+			}
+			return 1u;
 		}
 	}
 
@@ -116,7 +120,11 @@ public class ShaderVariable : IEquatable<ShaderVariable>, IComparable<ShaderVari
 
 	public bool Equals(ShaderVariable other)
 	{
-		return ID == other.ID && VarType == other.VarType;
+		if (ID == other.ID)
+		{
+			return VarType == other.VarType;
+		}
+		return false;
 	}
 
 	public int CompareTo(ShaderVariable other)
@@ -127,7 +135,11 @@ public class ShaderVariable : IEquatable<ShaderVariable>, IComparable<ShaderVari
 		}
 		if (other.VarType != VarType)
 		{
-			return (VarType >= other.VarType) ? 1 : (-1);
+			if (VarType >= other.VarType)
+			{
+				return 1;
+			}
+			return -1;
 		}
 		return ID.CompareTo(other.ID);
 	}

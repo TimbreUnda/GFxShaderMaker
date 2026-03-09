@@ -56,10 +56,10 @@ public class IndentStreamWriter
 				}
 				else if (OutdentCharacters.Contains(text[i + 1]))
 				{
-					int num2 = Math.Min(IndentSpaces, CurrentIndent.Count());
-					if (num2 > 0)
+					int num3 = Math.Min(IndentSpaces, CurrentIndent.Count());
+					if (num3 > 0)
 					{
-						CurrentIndent = CurrentIndent.Remove(0, num2);
+						CurrentIndent = CurrentIndent.Remove(0, num3);
 					}
 					i++;
 				}
@@ -74,10 +74,10 @@ public class IndentStreamWriter
 			}
 			else if (OutdentCharacters.Contains(text[i]))
 			{
-				int num2 = Math.Min(IndentSpaces, CurrentIndent.Count());
-				if (num2 > 0)
+				int num4 = Math.Min(IndentSpaces, CurrentIndent.Count());
+				if (num4 > 0)
 				{
-					CurrentIndent = CurrentIndent.Remove(0, num2);
+					CurrentIndent = CurrentIndent.Remove(0, num4);
 				}
 			}
 		}

@@ -12,7 +12,27 @@ public class Platform_X360 : Platform_D3DCommon
 
 	public override List<ShaderVersion> RequestedShaderVersions => ShaderVersions;
 
-	protected override string D3DFXCExtraOptions => "/XZi";
+	protected override string D3DFXCExtraOptions
+	{
+		get
+		{
+			string option = CommandLineParser.GetOption(CommandLineParser.Options.Config);
+			switch (option)
+			{
+			case "Debug":
+			case "DebugOpt":
+				return "/XZi";
+			case "Release":
+				return "/XZi";
+			case "Shipping":
+				return "";
+			default:
+				throw new Exception("Unsupported configuration type: " + option);
+			}
+		}
+	}
+
+	protected override bool PreferWindowsKitsFXC => false;
 
 	protected override string D3DSDKEnvironmentVariable => "XEDK";
 

@@ -8,11 +8,11 @@ public class ShaderPermutation : IComparable<ShaderPermutation>
 {
 	public List<ShaderFeatureFlavor> SpecificFeatures = new List<ShaderFeatureFlavor>();
 
-	public List<ShaderLinkedSource> LinkedSources = null;
+	public List<ShaderLinkedSource> LinkedSources;
 
 	private uint ShaderTypeValue;
 
-	private bool ShaderTypeSet = false;
+	private bool ShaderTypeSet;
 
 	public uint ShaderType
 	{
@@ -87,6 +87,10 @@ public class ShaderPermutation : IComparable<ShaderPermutation>
 		{
 			flavor = specificFeature;
 			if (ver.UnsupportedFlags.Find((string uf) => flavor.Flags.Find((string f) => f == uf) != null || flavor.PostLink.Find((string pl) => pl == uf) != null) != null)
+			{
+				return false;
+			}
+			if (flavor.IsRestricted(ver))
 			{
 				return false;
 			}
@@ -171,6 +175,10 @@ public class ShaderPermutation : IComparable<ShaderPermutation>
 		{
 			return 0;
 		}
-		return (other.ShaderType < ShaderType) ? 1 : (-1);
+		if (other.ShaderType >= ShaderType)
+		{
+			return -1;
+		}
+		return 1;
 	}
 }

@@ -10,7 +10,7 @@ public class WiiU_Version : ShaderVersion
 {
 	private Dictionary<string, uint> SemanticLayout = new Dictionary<string, uint>();
 
-	private uint NextLayoutIndex = 0u;
+	private uint NextLayoutIndex;
 
 	public override string SourceExtension => ".glsl";
 
@@ -71,6 +71,8 @@ public class WiiU_Version : ShaderVersion
 		text = Regex.Replace(text, "(^|\\b)tex2D\\b", "texture2D");
 		text = Regex.Replace(text, "(^|\\b)tex2Dlod\\b", "texture2DLod");
 		text = Regex.Replace(text, "(^|\\b)frac\\b", "fract");
+		text = Regex.Replace(text, "\\bddx\\b", "dFdx");
+		text = Regex.Replace(text, "\\bddy\\b", "dFdy");
 		text = Regex.Replace(text, "mul\\s*\\((?'P0'" + ShaderVersion.SubexprRegex + "),(?'P1'" + ShaderVersion.SubexprRegex + ")\\)", "(${P0}) * (${P1})");
 		foreach (ShaderVariable item2 in linkedSrc.VariableList.FindAll((ShaderVariable v) => v.VarType == ShaderVariable.VariableType.Variable_FragOut))
 		{
@@ -99,11 +101,17 @@ public class WiiU_Version : ShaderVersion
 	{
 		foreach (ShaderLinkedSource value2 in LinkedSourceDuplicates.Values)
 		{
-			string path = Path.Combine(base.SourceDirectory, base.ID + "_" + value2.ID + ".h");
-			StreamReader streamReader = File.OpenText(path);
+			string shaderOutputFilename = GetShaderOutputFilename(value2);
+			StreamReader streamReader = File.OpenText(shaderOutputFilename);
 			string value = streamReader.ReadToEnd().Replace("static GX2", "GX2");
 			sourceFile.Write(value);
 			streamReader.Close();
 		}
+	}
+
+	public string GetShaderOutputFilename(ShaderLinkedSource src)
+	{
+		string path = Path.Combine(base.SourceDirectory, GetShaderFilename(src));
+		return Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path) + ".h");
 	}
 }

@@ -7,12 +7,13 @@ internal class Program
 {
 	private static void Main(string[] args)
 	{
-		Mutex mutex = new Mutex(initiallyOwned: true, "GFxShaderMaker", out var createdNew);
+		bool createdNew = false;
+		new Mutex(initiallyOwned: true, "GFxShaderMaker", out createdNew);
 		if (!createdNew)
 		{
 			try
 			{
-				mutex = Mutex.OpenExisting("GFxShaderMaker");
+				Mutex.OpenExisting("GFxShaderMaker");
 			}
 			catch (Exception)
 			{
