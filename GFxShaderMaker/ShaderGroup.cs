@@ -4,7 +4,7 @@ using System.Xml;
 
 namespace GFxShaderMaker;
 
-public class ShaderGroup
+public class ShaderGroup : ShaderRestriction
 {
 	public string ID;
 
@@ -14,7 +14,7 @@ public class ShaderGroup
 
 	public Dictionary<string, uint> FeatureFlavorFlags;
 
-	public void ReadFromXml(XmlElement root)
+	public override void ReadFromXml(XmlElement root)
 	{
 		Features = new List<ShaderFeature>();
 		ID = root.Attributes.GetNamedItem("id").Value;
@@ -24,6 +24,7 @@ public class ShaderGroup
 			shaderFeature.ReadFromXml(item);
 			Features.Add(shaderFeature);
 		}
+		base.ReadFromXml(root);
 	}
 
 	private void DetermineFeatureFlags(Dictionary<string, uint> globalFeatureFlags)
@@ -58,9 +59,9 @@ public class ShaderGroup
 		while (num >= 0)
 		{
 			ShaderPermutation shaderPermutation = new ShaderPermutation();
-			for (int i = 0; i < Features.Count; i++)
+			for (int j = 0; j < Features.Count; j++)
 			{
-				shaderPermutation.SpecificFeatures.Add(Features[i].Flavors[array[i]]);
+				shaderPermutation.SpecificFeatures.Add(Features[j].Flavors[array[j]]);
 			}
 			if (shaderPermutation.IsValid())
 			{
@@ -91,9 +92,16 @@ public class ShaderGroup
 	public List<ShaderLinkedSource> LinkShaderSources(List<ShaderSource> sources, ShaderVersion shaderVersion)
 	{
 		List<ShaderLinkedSource> list = new List<ShaderLinkedSource>();
+		if (IsRestricted(shaderVersion))
+		{
+			return list;
+		}
 		foreach (ShaderPermutation permutation in Permutations)
 		{
-			list.AddRange(permutation.LinkShaderSources(sources, shaderVersion));
+			if (permutation.IsValid(shaderVersion))
+			{
+				list.AddRange(permutation.LinkShaderSources(sources, shaderVersion));
+			}
 		}
 		return list;
 	}

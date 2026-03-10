@@ -28,7 +28,11 @@ public class CommandLineParser
 		[CommandLineOption(CmdLineOptionType.OptionType_String, "verbosity", "1", "Verbosity level (0=silent, 3=verbose).", null)]
 		Verbosity,
 		[CommandLineOption(CmdLineOptionType.OptionType_String, "config", "Release", "Build configuration type. May compile shaders with different optimization settings. Required on platforms that compile shaders directory to object files. (default='Release_NoRTTI')", null)]
-		Config
+		Config,
+		[CommandLineOption(CmdLineOptionType.OptionType_Flag, "skipcpp", "false", "(Advanced:) Skips generation of header and source files. Unless you know they won't change, don't use this option. Used just to avoid large rebuilds.", null)]
+		SkipHeaderAndSourceRegeneration,
+		[CommandLineOption(CmdLineOptionType.OptionType_Flag, "skipshader", "false", "(Advanced:) Skips generation of compiled shaders. Unless you know they won't change, don't use this option. Used just to avoid large rebuilds.", null)]
+		SkipShaderRegeneration
 	}
 
 	private static CommandLineParser Instance = null;
@@ -48,7 +52,22 @@ public class CommandLineParser
 
 	public static string GetOption(Options opt)
 	{
-		return GetOption<string>(opt.ToString());
+		return GetOption(opt.ToString());
+	}
+
+	public static string GetOption(string opt)
+	{
+		if (!CommandLineOptions.TryGetValue(opt, out var value))
+		{
+			MemberInfo[] member = typeof(Options).GetMember(opt);
+			if (member.Count() == 0)
+			{
+				return null;
+			}
+			CommandLineOptionAttribute commandLineOptionAttribute = member[0].GetCustomAttributes(typeof(CommandLineOptionAttribute), inherit: false)[0] as CommandLineOptionAttribute;
+			return commandLineOptionAttribute.DefaultValue;
+		}
+		return value;
 	}
 
 	public static T GetOption<T>(Options opt)
@@ -58,18 +77,14 @@ public class CommandLineParser
 
 	public static T GetOption<T>(string opt)
 	{
-		if (!CommandLineOptions.TryGetValue(opt, out var value))
-		{
-			CommandLineOptionAttribute commandLineOptionAttribute = typeof(Options).GetMember(opt.ToString())[0].GetCustomAttributes(typeof(CommandLineOptionAttribute), inherit: false)[0] as CommandLineOptionAttribute;
-			value = commandLineOptionAttribute.DefaultValue;
-		}
-		return (T)Convert.ChangeType(value, typeof(T));
+		string option = GetOption(opt);
+		return (T)Convert.ChangeType(option, typeof(T));
 	}
 
 	public void Parse(string[] args)
 	{
 		bool flag = false;
-		FieldInfo[] fields = typeof(Options).GetFields();
+		typeof(Options).GetFields();
 		string text = Options.Help.ToString();
 		List<Type> list = new List<Type>();
 		list.Add(typeof(Options));
@@ -92,10 +107,9 @@ public class CommandLineParser
 				}
 			}
 		}
-		string[] names;
 		foreach (Type item in list)
 		{
-			names = Enum.GetNames(item);
+			string[] names = Enum.GetNames(item);
 			foreach (string text2 in names)
 			{
 				CommandLineOptionAttribute commandLineOptionAttribute = item.GetMember(text2.ToString())[0].GetCustomAttributes(typeof(CommandLineOptionAttribute), inherit: false)[0] as CommandLineOptionAttribute;
@@ -103,8 +117,7 @@ public class CommandLineParser
 			}
 		}
 		CommandLineOptionAttribute commandLineOptionAttribute2 = null;
-		names = args;
-		foreach (string text3 in names)
+		foreach (string text3 in args)
 		{
 			if (commandLineOptionAttribute2 != null)
 			{
@@ -116,18 +129,20 @@ public class CommandLineParser
 			foreach (Type item2 in list)
 			{
 				string[] names2 = Enum.GetNames(item2);
-				foreach (string text2 in names2)
+				foreach (string text4 in names2)
 				{
-					CommandLineOptionAttribute commandLineOptionAttribute = item2.GetMember(text2.ToString())[0].GetCustomAttributes(typeof(CommandLineOptionAttribute), inherit: false)[0] as CommandLineOptionAttribute;
-					if (commandLineOptionAttribute.Match(text3) && commandLineOptionAttribute.Type != CmdLineOptionType.OptionType_Action)
+					CommandLineOptionAttribute commandLineOptionAttribute3 = item2.GetMember(text4.ToString())[0].GetCustomAttributes(typeof(CommandLineOptionAttribute), inherit: false)[0] as CommandLineOptionAttribute;
+					if (commandLineOptionAttribute3.Match(text3) && commandLineOptionAttribute3.Type != CmdLineOptionType.OptionType_Action)
 					{
-						if (commandLineOptionAttribute.Type != CmdLineOptionType.OptionType_Flag)
+						if (commandLineOptionAttribute3.Type != CmdLineOptionType.OptionType_Flag)
 						{
-							text = text2;
-							commandLineOptionAttribute2 = commandLineOptionAttribute;
+							text = text4;
+							commandLineOptionAttribute2 = commandLineOptionAttribute3;
 							break;
 						}
-						CommandLineOptions.Add(text2, bool.TrueString);
+						CommandLineOptions.Remove(text4.ToString());
+						CommandLineOptions.Add(text4.ToString(), true.ToString());
+						commandLineOptionAttribute2 = null;
 					}
 				}
 			}
@@ -140,7 +155,7 @@ public class CommandLineParser
 				MemberInfo[] members = item3.GetMembers();
 				foreach (MemberInfo memberInfo in members)
 				{
-					string text2 = memberInfo.GetType().Name;
+					_ = memberInfo.GetType().Name;
 					object[] customAttributes = memberInfo.GetCustomAttributes(typeof(CommandLineOptionAttribute), inherit: false);
 					if (customAttributes.GetLength(0) == 0)
 					{
@@ -149,9 +164,9 @@ public class CommandLineParser
 					object[] array = customAttributes;
 					foreach (object obj in array)
 					{
-						if (obj is CommandLineOptionAttribute commandLineOptionAttribute3 && commandLineOptionAttribute3.Match(text3) && commandLineOptionAttribute3.Type == CmdLineOptionType.OptionType_Action)
+						if (obj is CommandLineOptionAttribute commandLineOptionAttribute4 && commandLineOptionAttribute4.Match(text3) && commandLineOptionAttribute4.Type == CmdLineOptionType.OptionType_Action)
 						{
-							CommandLineAction commandLineAction = Activator.CreateInstance(commandLineOptionAttribute3.ActionType) as CommandLineAction;
+							CommandLineAction commandLineAction = Activator.CreateInstance(commandLineOptionAttribute4.ActionType) as CommandLineAction;
 							commandLineAction.Execute();
 							flag = true;
 						}

@@ -38,29 +38,21 @@ public class ShaderVersion_SM40 : ShaderVersion_D3DCommon
 
 	public override string CreateFinalSource(ShaderLinkedSource linkedSrc)
 	{
-		string text = "";
+		string shaderCode = RootSignature;
 		List<ShaderVariable> list = linkedSrc.VariableList.FindAll((ShaderVariable shaderVariable) => shaderVariable.VarType == ShaderVariable.VariableType.Variable_Uniform && !shaderVariable.SamplerType).ToList();
 		List<ShaderVariable> list2 = linkedSrc.VariableList.FindAll((ShaderVariable shaderVariable) => shaderVariable.VarType == ShaderVariable.VariableType.Variable_Uniform && shaderVariable.SamplerType).ToList();
 		list.Sort();
-		if (list.Count > 0)
-		{
-			text += "cbuffer Constants { \n";
-			foreach (ShaderVariable item in list)
-			{
-				object obj = text;
-				text = string.Concat(obj, item.Type, " ", item.ID, (item.ArraySize > 1) ? ("[" + item.ArraySize + "]") : "", " : packoffset(c", item.BaseRegister, ");\n");
-			}
-			text += "};\n\n";
-		}
+		writeSourceUniforms(ref shaderCode, linkedSrc, list);
 		int num = 0;
-		foreach (ShaderVariable item2 in list2)
+		foreach (ShaderVariable item in list2)
 		{
-			object obj = text;
-			text = string.Concat(obj, "SamplerState sampler_", item2.ID, (item2.ArraySize > 1) ? ("[" + item2.ArraySize + "]") : "", " : register(s", num++, ");\n");
-			obj = text;
-			text = string.Concat(obj, Regex.Replace(item2.Type, "^sampler", "Texture"), " ", item2.ID, (item2.ArraySize > 1) ? ("[" + item2.ArraySize + "]") : "", " : register(t", item2.BaseRegister, ");\n");
+			object obj = shaderCode;
+			shaderCode = string.Concat(obj, "SamplerState sampler_", item.ID, (item.ArraySize > 1) ? ("[" + item.ArraySize + "]") : "", " : register(s", num++, ");\n");
+			object obj2 = shaderCode;
+			shaderCode = string.Concat(obj2, Regex.Replace(item.Type, "^sampler", "Texture"), " ", item.ID, (item.ArraySize > 1) ? ("[" + item.ArraySize + "]") : "", " : register(t", item.BaseRegister, ");\n");
 		}
-		text += "void main( ";
+		shaderCode += RootSignatureAttribute;
+		shaderCode += "void main( ";
 		bool flag = true;
 		ShaderVariable.VariableType inType;
 		ShaderVariable.VariableType outType;
@@ -76,55 +68,70 @@ public class ShaderVersion_SM40 : ShaderVersion_D3DCommon
 			break;
 		}
 		ShaderVariable var;
-		foreach (ShaderVariable item3 in linkedSrc.VariableList.FindAll((ShaderVariable shaderVariable) => shaderVariable.VarType == inType || shaderVariable.VarType == outType))
+		foreach (ShaderVariable item2 in linkedSrc.VariableList.FindAll((ShaderVariable shaderVariable) => shaderVariable.VarType == inType || shaderVariable.VarType == outType))
 		{
-			var = item3;
+			var = item2;
 			if (!flag)
 			{
-				text += ",\n           ";
+				shaderCode += ",\n           ";
 			}
 			flag = false;
-			string text2 = var.Semantic;
-			string text3 = var.Type;
+			string text = var.Semantic;
+			string text2 = var.Type;
 			if (var.Semantic.StartsWith("FACTOR") || var.Semantic.StartsWith("INSTANCE"))
 			{
 				if (var.Semantic.StartsWith("INSTANCE") && linkedSrc.PostFunctions.Find((string s) => string.Compare(s, "Instanced", ignoreCase: true) == 0) != null)
 				{
-					text2 = "SV_InstanceID";
+					text = "SV_InstanceID";
 				}
 				else
 				{
-					text2 = "COLOR";
+					text = "COLOR";
 					List<ShaderVariable> list3 = linkedSrc.VariableList.FindAll((ShaderVariable v) => v.Semantic.StartsWith("COLOR") && v.VarType == var.VarType);
 					string value = "-1";
 					if (list3.Count > 0)
 					{
 						value = Regex.Replace(list3.Max((ShaderVariable v) => v.Semantic), "^.*(\\d+)$", "$1");
 					}
-					text2 += Convert.ToInt32(value) + (var.Semantic.StartsWith("FACTOR") ? 1 : 2);
+					text += Convert.ToInt32(value) + (var.Semantic.StartsWith("FACTOR") ? 1 : 2);
 				}
 			}
 			else if (linkedSrc.Pipeline.Type == ShaderPipeline.PipelineType.Fragment && var.VarType == outType && var.Semantic.StartsWith("COLOR"))
 			{
-				text2 = Regex.Replace(var.Semantic, "^COLOR", "SV_Target");
+				text = Regex.Replace(var.Semantic, "^COLOR", "SV_Target");
 			}
 			else if (var.Semantic.StartsWith("POSITION"))
 			{
-				text2 = Regex.Replace(var.Semantic, "^POSITION", "SV_Position");
-				text2 = Regex.Replace(text2, "0$", "");
+				text = Regex.Replace(var.Semantic, "^POSITION", "SV_Position");
+				text = Regex.Replace(text, "0$", "");
 			}
-			if (var.Semantic.StartsWith("INSTANCE") || text2.StartsWith("SV_InstanceID"))
+			if (var.Semantic.StartsWith("INSTANCE") || text.StartsWith("SV_InstanceID"))
 			{
-				text3 = Regex.Replace(text3, "float", "uint");
-				text3 = Regex.Replace(text3, "lowpf", "uint");
+				text2 = Regex.Replace(text2, "float", "uint");
+				text2 = Regex.Replace(text2, "lowpf", "uint");
 			}
-			string text4 = text;
-			text = text4 + ((var.VarType == outType) ? "out " : "") + text3 + " " + var.ID + ((var.ArraySize > 1) ? ("[" + var.ArraySize + "]") : "") + " : " + text2;
+			string text3 = shaderCode;
+			shaderCode = text3 + ((var.VarType == outType) ? "out " : "") + text2 + " " + var.ID + ((var.ArraySize > 1) ? ("[" + var.ArraySize + "]") : "") + " : " + text;
 		}
-		text += ")\n{";
-		text = text + linkedSrc.SourceCode + "}\n";
-		text = text.Replace("lowpf", "float");
-		text = Regex.Replace(text, "tex\\dD\\s*\\(\\s*([^,]+)", "$1.Sample(sampler_$1");
-		return Regex.Replace(text, "tex\\dDlod\\s*\\(\\s*([^,]+)", "$1.SampleLevel(sampler_$1");
+		shaderCode += ")\n{";
+		shaderCode = shaderCode + linkedSrc.SourceCode + "}\n";
+		shaderCode = shaderCode.Replace("lowpf", "float");
+		shaderCode = Regex.Replace(shaderCode, "tex\\dD\\s*\\(\\s*([^,]+)", "$1.Sample(sampler_$1");
+		return Regex.Replace(shaderCode, "tex\\dDlod\\s*\\(\\s*([^,]+)", "$1.SampleLevel(sampler_$1");
+	}
+
+	protected virtual void writeSourceUniforms(ref string shaderCode, ShaderLinkedSource src, List<ShaderVariable> uniforms)
+	{
+		if (uniforms.Count <= 0)
+		{
+			return;
+		}
+		shaderCode += "cbuffer Constants { \n";
+		foreach (ShaderVariable uniform in uniforms)
+		{
+			object obj = shaderCode;
+			shaderCode = string.Concat(obj, uniform.Type, " ", uniform.ID, (uniform.ArraySize > 1) ? ("[" + uniform.ArraySize + "]") : "", " : packoffset(c", uniform.BaseRegister, ");\n");
+		}
+		shaderCode += "};\n\n";
 	}
 }

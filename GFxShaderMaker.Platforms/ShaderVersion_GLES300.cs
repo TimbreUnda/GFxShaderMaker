@@ -4,24 +4,19 @@ using System.Text.RegularExpressions;
 
 namespace GFxShaderMaker.Platforms;
 
-public class ShaderVersion_GLSL150 : ShaderVersion_OpenGLGLSL
+public class ShaderVersion_GLES300 : ShaderVersion_GLESGLSL
 {
-	public override string SourceExtension => ".150.glsl";
+	public override string SourceExtension => ".gles3.glsl";
 
-	protected override string GLSLVersionString => "#version 150\n";
+	protected override string GLSLVersionString => "#version 300 es\n";
 
-	public override bool UsesUniformBufferObjects => Convert.ToBoolean(CommandLineParser.GetOption<string>(Platform_GL.CommandLineOptions.EnableUBO.ToString()));
+	public override bool UsesUniformBufferObjects => Convert.ToBoolean(CommandLineParser.GetOption<string>(Platform_GLES.CommandLineOptions.EnableUBO.ToString()));
 
-	public ShaderVersion_GLSL150(ShaderPlatform platform, string version = "GLSL150")
-		: base(platform, version)
+	protected override string InstanceIDName => "gl_InstanceID";
+
+	public ShaderVersion_GLES300(ShaderPlatform platform)
+		: base(platform, "GLES30")
 	{
-	}
-
-	protected override void PerformVersionSpecificReplacements(ref string shaderCode, ShaderLinkedSource linkedSrc)
-	{
-		base.PerformVersionSpecificReplacements(ref shaderCode, linkedSrc);
-		shaderCode = Regex.Replace(shaderCode, "\\btexture2D\\b", "texture", RegexOptions.IgnoreCase);
-		shaderCode = Regex.Replace(shaderCode, "\\btexture2DLod\\b", "textureLod", RegexOptions.IgnoreCase);
 	}
 
 	protected override string GetShaderVariableQualifier(ShaderVariable.VariableType VarType, ShaderPipeline pipeline)
@@ -45,6 +40,11 @@ public class ShaderVersion_GLSL150 : ShaderVersion_OpenGLGLSL
 		}
 	}
 
+	protected override string GetGLSLExtensionStrings(ShaderLinkedSource linkedSrc)
+	{
+		return "";
+	}
+
 	protected override string AddShaderUniforms(ShaderLinkedSource linkedSrc, string shaderCode, List<ShaderVariable> uniforms)
 	{
 		if (!UsesUniformBufferObjects)
@@ -54,7 +54,7 @@ public class ShaderVersion_GLSL150 : ShaderVersion_OpenGLGLSL
 		bool flag = false;
 		string text = "";
 		object obj = text;
-		text = string.Concat(obj, "layout(std140) uniform ", linkedSrc.Pipeline.Letter, "Constants {\n");
+		text = string.Concat(obj, "uniform ", linkedSrc.Pipeline.Letter, "Constants {\n");
 		foreach (ShaderVariable uniform in uniforms)
 		{
 			string shaderVariableQualifier = GetShaderVariableQualifier(uniform.VarType, linkedSrc.Pipeline);
@@ -80,5 +80,12 @@ public class ShaderVersion_GLSL150 : ShaderVersion_OpenGLGLSL
 			}
 		}
 		return shaderCode;
+	}
+
+	protected override void PerformVersionSpecificReplacements(ref string sourceCode, ShaderLinkedSource linkedSrc)
+	{
+		base.PerformVersionSpecificReplacements(ref sourceCode, linkedSrc);
+		sourceCode = Regex.Replace(sourceCode, "\\btexture2D\\b", "texture", RegexOptions.IgnoreCase);
+		sourceCode = Regex.Replace(sourceCode, "\\btexture2DLod\\b", "textureLod", RegexOptions.IgnoreCase);
 	}
 }

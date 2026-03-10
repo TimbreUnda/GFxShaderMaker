@@ -25,18 +25,19 @@ public class DefaultAction : CommandLineAction
 		}
 		XmlDocument xmlDocument = new XmlDocument();
 		xmlDocument.Load(option);
+		shaderPlatform.ShaderBuildEvent(ShaderPlatform.ShaderBuildEventType.ShaderBuildEvent_Initialize);
 		shaderPlatform.ReadFromXml(xmlDocument.DocumentElement);
-		shaderPlatform.WriteHeaderFile();
-		shaderPlatform.WriteSourceFile();
 		shaderPlatform.WriteShaderSources();
-		switch (CommandLineParser.GetOption(CommandLineParser.Options.OutputType).ToLower())
+		if (!CommandLineParser.GetOption<bool>(CommandLineParser.Options.SkipHeaderAndSourceRegeneration))
 		{
-		case "binary":
-			shaderPlatform.CreateShaderOutput(ShaderPlatform.ShaderOutputType.Binary);
-			break;
-		case "source":
-			shaderPlatform.CreateShaderOutput(ShaderPlatform.ShaderOutputType.Source);
-			break;
+			shaderPlatform.WriteHeaderFile();
+			shaderPlatform.WriteSourceFile();
 		}
+		shaderPlatform.ShaderBuildEvent(ShaderPlatform.ShaderBuildEventType.ShaderBuildEvent_PostShaderDesc);
+		if (!CommandLineParser.GetOption<bool>(CommandLineParser.Options.SkipShaderRegeneration))
+		{
+			shaderPlatform.CreateShaderOutput();
+		}
+		shaderPlatform.ShaderBuildEvent(ShaderPlatform.ShaderBuildEventType.ShaderBuildEvent_Finalize);
 	}
 }

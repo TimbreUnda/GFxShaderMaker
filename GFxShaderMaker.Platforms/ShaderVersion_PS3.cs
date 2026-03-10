@@ -46,8 +46,8 @@ public class ShaderVersion_PS3 : ShaderVersion
 			}
 			else
 			{
-				object obj = text;
-				text = string.Concat(obj, item.Type, " ", item.ID, (item.ArraySize > 1) ? ("[" + item.ArraySize + "]") : "", " : register(", GetVariableUniformRegisterType(item), item.BaseRegister, ");\n");
+				object obj2 = text;
+				text = string.Concat(obj2, item.Type, " ", item.ID, (item.ArraySize > 1) ? ("[" + item.ArraySize + "]") : "", " : register(", GetVariableUniformRegisterType(item), item.BaseRegister, ");\n");
 			}
 		}
 		text += "void main( ";

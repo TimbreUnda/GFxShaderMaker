@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace GFxShaderMaker;
 
@@ -17,17 +19,17 @@ public class ShaderLinkedSource
 
 	public ShaderPipeline Pipeline;
 
-	private uint ShaderIndexValue = 0u;
+	private uint ShaderIndexValue;
 
-	private bool ShaderIndexSet = false;
+	private bool ShaderIndexSet;
 
-	private uint ShaderComboIndexValue = 0u;
+	private uint ShaderComboIndexValue;
 
-	private bool ShaderComboIndexSet = false;
+	private bool ShaderComboIndexSet;
 
 	private string SourceCodeDuplicateIDValue = "";
 
-	private bool SourceCodeDuplicateIDSet = false;
+	private bool SourceCodeDuplicateIDSet;
 
 	public uint ShaderIndex
 	{
@@ -80,16 +82,38 @@ public class ShaderLinkedSource
 		}
 	}
 
-	public uint UniformSize
+	public uint UniformSize => (uint)VariableList.Sum((ShaderVariable var) => (var.VarType == ShaderVariable.VariableType.Variable_Uniform) ? var.RegisterCount : 0);
+
+	public List<ShaderVariable> SortedAttributeList
 	{
 		get
 		{
-			uint num = 0u;
-			foreach (ShaderVariable item in VariableList.FindAll((ShaderVariable var) => var.VarType == ShaderVariable.VariableType.Variable_Uniform))
+			List<ShaderVariable> list = VariableList.FindAll((ShaderVariable v) => v.VarType == ShaderVariable.VariableType.Variable_Attribute);
+			string[] semanticOrder = new string[5] { "POSITION", "COLOR", "FACTOR", "TEXCOORD", "INSTANCE" };
+			list.Sort(delegate(ShaderVariable s0, ShaderVariable s1)
 			{
-				num += item.ArraySize * item.RegisterCount;
-			}
-			return num;
+				int num = 0;
+				int num2 = 0;
+				for (int i = 0; i < semanticOrder.Length; i++)
+				{
+					if (s0.Semantic.StartsWith(semanticOrder[i]))
+					{
+						num = i;
+					}
+					if (s1.Semantic.StartsWith(semanticOrder[i]))
+					{
+						num2 = i;
+					}
+				}
+				if (num == num2)
+				{
+					string value = Regex.Replace(s0.Semantic, "^[^0-9]+", "");
+					string value2 = Regex.Replace(s1.Semantic, "^[^0-9]+", "");
+					return Convert.ToInt32(value).CompareTo(Convert.ToInt32(value2));
+				}
+				return num.CompareTo(num2);
+			});
+			return list;
 		}
 	}
 

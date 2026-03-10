@@ -50,7 +50,7 @@ public abstract class ShaderVersion
 
 	public virtual uint MaxBatchCount => 24u;
 
-	public string SourceDirectory => Path.Combine(CommandLineParser.GetOption(CommandLineParser.Options.OutputDirectory), "Shaders");
+	public string SourceDirectory => Platform.PlatformObjDirectory;
 
 	public List<ShaderVariable> UniqueUniformList
 	{
@@ -111,15 +111,15 @@ public abstract class ShaderVersion
 		ShaderSources.Clear();
 		foreach (KeyValuePair<string, ShaderPipeline.PipelineType> key2 in dictionary.Keys)
 		{
-			List<ShaderSource> value = dictionary[key2];
-			ShaderSource shaderSource2 = value.Find((ShaderSource s) => s.Versions.Contains(ID));
+			List<ShaderSource> list = dictionary[key2];
+			ShaderSource shaderSource2 = list.Find((ShaderSource s) => s.Versions.Contains(ID));
 			if (shaderSource2 == null)
 			{
-				shaderSource2 = value.Find((ShaderSource s) => s.Platforms.Contains(Platform.PlatformName));
+				shaderSource2 = list.Find((ShaderSource s) => s.Platforms.Contains(Platform.PlatformName));
 			}
 			if (shaderSource2 == null)
 			{
-				shaderSource2 = value.Find((ShaderSource s) => s.Platforms.Count == 0 && s.Versions.Count == 0);
+				shaderSource2 = list.Find((ShaderSource s) => s.Platforms.Count == 0 && s.Versions.Count == 0);
 			}
 			if (shaderSource2 != null)
 			{
@@ -128,7 +128,7 @@ public abstract class ShaderVersion
 		}
 	}
 
-	public void CreatePermutations()
+	public virtual void CreatePermutations()
 	{
 		List<ShaderLinkedSource> list = new List<ShaderLinkedSource>();
 		foreach (ShaderGroup shaderGroup in Platform.ShaderGroups)
@@ -227,11 +227,11 @@ public abstract class ShaderVersion
 					string linkedSrcName = c + permutationName;
 					foreach (List<ShaderLinkedSource> value4 in dictionary.Values)
 					{
-						ShaderLinkedSource current = value4.Find((ShaderLinkedSource s) => s.ID == linkedSrcName);
-						if (current != null)
+						ShaderLinkedSource shaderLinkedSource = value4.Find((ShaderLinkedSource s) => s.ID == linkedSrcName);
+						if (shaderLinkedSource != null)
 						{
 							hashedPipelineSrcs.Add(value4.First());
-							list3.Add(current);
+							list3.Add(shaderLinkedSource);
 							break;
 						}
 					}
@@ -390,5 +390,25 @@ public abstract class ShaderVersion
 	public virtual void WriteBinaryShaderSource(StreamWriter file)
 	{
 		throw new NotImplementedException("WriteBinaryShaderSource");
+	}
+
+	public virtual void WriteBinaryShaderDataFile()
+	{
+		throw new NotImplementedException("WriteBinaryShaderDataFile");
+	}
+
+	public virtual string GetShaderFilename(ShaderLinkedSource src)
+	{
+		return ID + "_" + src.ID + SourceExtension;
+	}
+
+	public virtual string GetShaderDuplicateFilename(ShaderLinkedSource src)
+	{
+		return ID + "_" + src.SourceCodeDuplicateID + SourceExtension;
+	}
+
+	public virtual string GetSourceCodeContent(ShaderLinkedSource src)
+	{
+		return src.SourceCode;
 	}
 }

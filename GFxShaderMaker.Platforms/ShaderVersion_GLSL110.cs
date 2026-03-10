@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace GFxShaderMaker.Platforms;
 
-public class ShaderVersion_GLSL110 : ShaderVersion_GLSLCommon
+public class ShaderVersion_GLSL110 : ShaderVersion_OpenGLGLSL
 {
 	private List<string> UnsupportedFlagsGLSL110 = new List<string>();
 
@@ -22,12 +22,11 @@ public class ShaderVersion_GLSL110 : ShaderVersion_GLSLCommon
 
 	protected override void PerformVersionSpecificReplacements(ref string shaderCode, ShaderLinkedSource linkedSrc)
 	{
+		base.PerformVersionSpecificReplacements(ref shaderCode, linkedSrc);
 		foreach (ShaderVariable item in linkedSrc.VariableList.FindAll((ShaderVariable v) => v.VarType == ShaderVariable.VariableType.Variable_FragOut))
 		{
 			shaderCode = Regex.Replace(shaderCode, "\\b" + item.ID + "\\b", "gl_FragColor");
 		}
-		shaderCode = Regex.Replace(shaderCode, "\\btex2D\\b", "texture2D");
-		shaderCode = Regex.Replace(shaderCode, "\\btex2Dlod\\b", "texture2DLod");
 	}
 
 	protected override string GetShaderVariableQualifier(ShaderVariable.VariableType VarType, ShaderPipeline pipeline)

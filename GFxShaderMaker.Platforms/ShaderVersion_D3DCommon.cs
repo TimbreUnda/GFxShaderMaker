@@ -7,6 +7,10 @@ public abstract class ShaderVersion_D3DCommon : ShaderVersion
 {
 	public override string SourceExtension => ".hlsl";
 
+	public virtual string RootSignature => "";
+
+	public virtual string RootSignatureAttribute => "";
+
 	public ShaderVersion_D3DCommon(ShaderPlatform platform, string id)
 		: base(platform, id)
 	{
@@ -39,12 +43,12 @@ public abstract class ShaderVersion_D3DCommon : ShaderVersion
 	{
 		foreach (ShaderLinkedSource value in LinkedSourceDuplicates.Values)
 		{
-			string path = Path.Combine(base.SourceDirectory, value.ID + SourceExtension + ".h");
+			string path = Path.Combine(base.SourceDirectory, GetShaderFilename(value) + ".h");
 			StreamReader streamReader = File.OpenText(path);
 			string text = streamReader.ReadToEnd();
-			text = ((!(base.Platform.PlatformName != "D3D1x")) ? text.Replace("const BYTE", "extern const BYTE") : text.Replace("const ", "extern const "));
+			text = ((!(base.Platform.PlatformBase != "D3D1x")) ? text.Replace("const BYTE", "extern const BYTE") : Regex.Replace(text, "const \\w+", "extern const " + ((base.Platform.PlatformName == "X360") ? "DWORD" : "BYTE")));
 			sourceFile.Write(text);
-			if (base.Platform.PlatformName == "D3D1x")
+			if (base.Platform.PlatformBase == "D3D1x" || base.Platform.PlatformBase == "D3D12")
 			{
 				sourceFile.WriteLine("extern const int pBinary_" + base.ID + "_" + value.ID + "_size = sizeof(pBinary_" + base.ID + "_" + value.ID + ");");
 			}

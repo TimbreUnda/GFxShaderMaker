@@ -7,13 +7,9 @@ using System.Linq;
 namespace GFxShaderMaker.Platforms;
 
 [Platform("PS3", "Sony PS3 Cg")]
-public class Platform_PS3 : ShaderPlatform
+public class Platform_PS3 : ShaderPlatformBinaryShaders
 {
-	private List<ShaderOutputType> OutputTypes = new List<ShaderOutputType>();
-
 	private List<ShaderVersion> ShaderVersions = new List<ShaderVersion>();
-
-	public override IEnumerable<ShaderOutputType> SupportedOutputTypes => OutputTypes;
 
 	public override List<ShaderVersion> RequestedShaderVersions => ShaderVersions;
 
@@ -40,7 +36,6 @@ public class Platform_PS3 : ShaderPlatform
 
 	public Platform_PS3()
 	{
-		OutputTypes.Add(ShaderOutputType.Binary);
 		ShaderVersions.Add(new ShaderVersion_PS3(this));
 	}
 
@@ -69,12 +64,8 @@ public class Platform_PS3 : ShaderPlatform
 		};
 	}
 
-	public override void CreateShaderOutput(ShaderOutputType type)
+	public override void CreateShaderOutput()
 	{
-		if (type != ShaderOutputType.Binary)
-		{
-			throw new Exception(type.ToString() + " output type not supported on " + base.PlatformName);
-		}
 		string f = "";
 		string fileName = "";
 		string text = "";
@@ -121,11 +112,12 @@ public class Platform_PS3 : ShaderPlatform
 			foreach (ShaderLinkedSource value4 in requestedShaderVersion2.LinkedSourceDuplicates.Values)
 			{
 				Environment.CurrentDirectory = currentDirectory;
-				string text3 = Path.Combine(PlatformObjDirectory, requestedShaderVersion2.ID + "_" + value4.ID + ".o");
+				string text3 = requestedShaderVersion2.ID + "_" + value4.ID + ".o";
+				string text4 = Path.Combine(PlatformObjDirectory, text3);
 				Environment.CurrentDirectory = PlatformObjDirectory;
-				string text4 = "-I binary -O elf64-powerpc-celloslv2 -B powerpc " + requestedShaderVersion2.ID + "_" + value4.ID + ".po " + requestedShaderVersion2.ID + "_" + value4.ID + ".o";
+				string text5 = "-I binary -O elf64-powerpc-celloslv2 -B powerpc " + requestedShaderVersion2.ID + "_" + value4.ID + ".po " + requestedShaderVersion2.ID + "_" + value4.ID + ".o";
 				text2 = text2 + " \"" + text3 + "\"";
-				ProcessStartInfo processStartInfo = new ProcessStartInfo(text, text4);
+				ProcessStartInfo processStartInfo = new ProcessStartInfo(text, text5);
 				processStartInfo.ErrorDialog = false;
 				processStartInfo.CreateNoWindow = true;
 				processStartInfo.UseShellExecute = false;
@@ -136,10 +128,10 @@ public class Platform_PS3 : ShaderPlatform
 				process.WaitForExit();
 				if (process.ExitCode != 0)
 				{
-					Console.WriteLine("Error creating " + text3 + ":");
-					Console.WriteLine(text + " " + text4);
+					Console.WriteLine("Error creating " + text4 + ":");
+					Console.WriteLine(text + " " + text5);
 					Console.WriteLine(value);
-					throw new Exception("Error creating " + text3);
+					throw new Exception("Error creating " + text4);
 				}
 			}
 			Environment.CurrentDirectory = currentDirectory;
@@ -155,6 +147,7 @@ public class Platform_PS3 : ShaderPlatform
 		processStartInfo2.UseShellExecute = false;
 		processStartInfo2.RedirectStandardError = true;
 		processStartInfo2.RedirectStandardOutput = true;
+		processStartInfo2.WorkingDirectory = PlatformObjDirectory;
 		Process process2 = Process.Start(processStartInfo2);
 		string value2 = process2.StandardError.ReadToEnd();
 		process2.WaitForExit();
@@ -174,24 +167,25 @@ public class Platform_PS3 : ShaderPlatform
 			ShaderVersion sVersion = ctdata.SVersion;
 			ShaderLinkedSource source = ctdata.Source;
 			string exe = ctdata.Exe;
-			string text = Path.Combine(ctdata.SVersion.SourceDirectory, source.ID);
-			string text2 = text + sVersion.SourceExtension;
-			if (!File.Exists(text2))
+			string text = Path.Combine(ctdata.SVersion.SourceDirectory, sVersion.GetShaderFilename(source));
+			if (!File.Exists(text))
 			{
-				StreamWriter streamWriter = File.CreateText(text2);
-				streamWriter.Write(source.SourceCode);
-				streamWriter.Close();
+				throw new Exception("Expected to find " + text + " shader source, but it did not exist.");
 			}
-			string text3 = Path.Combine(PlatformObjDirectory, sVersion.ID + "_" + source.ID) + ".po";
+			string path = sVersion.ID + "_" + source.ID + ".po";
 			string shaderProfile = platform_PS.GetShaderProfile(source.Pipeline);
-			string text4 = "--entry main --profile " + shaderProfile + " --output \"" + text3 + "\" " + platform_PS.CGCExtraOptions + " \"" + text2 + "\"";
-			ctdata.ExitCode = launchProcess(exe, text4, out ctdata.StdOutput, out ctdata.StdError);
-			if (ctdata.ExitCode == 0 && !File.Exists(text3))
+			string text2 = Path.Combine(PlatformObjDirectory, path);
+			string file = text2;
+			string file2 = text;
+			Uri uri = GreatestCommonPath(ref file2, ref file);
+			string text3 = "--entry main --profile " + shaderProfile + " --output \"" + file + "\" " + platform_PS.CGCExtraOptions + " \"" + file2 + "\"";
+			ctdata.ExitCode = launchProcess(exe, text3, uri.LocalPath, out ctdata.StdOutput, out ctdata.StdError);
+			if (ctdata.ExitCode == 0 && !File.Exists(text2))
 			{
 				ctdata.ExitCode = -255;
 			}
-			ctdata.ShaderFilename = text2;
-			ctdata.CommandLine = exe + " " + text4;
+			ctdata.ShaderFilename = text;
+			ctdata.CommandLine = exe + " " + text3;
 		}
 	}
 }

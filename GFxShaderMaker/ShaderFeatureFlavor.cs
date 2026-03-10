@@ -4,7 +4,7 @@ using System.Xml;
 
 namespace GFxShaderMaker;
 
-public class ShaderFeatureFlavor
+public class ShaderFeatureFlavor : ShaderRestriction
 {
 	public string ID;
 
@@ -12,7 +12,7 @@ public class ShaderFeatureFlavor
 
 	public List<string> RequireIDs;
 
-	public bool Hidden = false;
+	public bool Hidden;
 
 	public List<string> PostLink;
 
@@ -46,5 +46,6 @@ public class ShaderFeatureFlavor
 		PostLink = ShaderPlatform.SplitStringToList("postlink", root, feature);
 		Flags = ShaderPlatform.SplitStringToList("flag", root, feature);
 		RequireIDs = ShaderPlatform.SplitStringToList("require", root, feature);
+		base.ReadFromXml(root);
 	}
 }

@@ -12,7 +12,7 @@ public class Platform_D3D9 : Platform_D3DCommon
 	{
 		[CommandLineOption(CmdLineOptionType.OptionType_String, "shadermodel", null, "The comma separated list of shader model(s) required (see -listsms).", null)]
 		ShaderModel,
-		[CommandLineOption(CmdLineOptionType.OptionType_Action, "listsms", "", "", typeof(ListD3D9ShaderModelsAction))]
+		[CommandLineOption(CmdLineOptionType.OptionType_Action, "listsms", null, "Lists the possible shader models (use with -shadermodel)", typeof(ListD3D9ShaderModelsAction))]
 		ListShaderModels
 	}
 
@@ -24,9 +24,9 @@ public class Platform_D3D9 : Platform_D3DCommon
 		SM30
 	}
 
-	private List<ShaderVersion> ReqShaderVersions = null;
+	private List<ShaderVersion> ReqShaderVersions;
 
-	private List<ShaderVersion> PosShaderVersions = null;
+	private List<ShaderVersion> PosShaderVersions;
 
 	public override List<ShaderVersion> PossibleShaderVersions
 	{
@@ -49,16 +49,39 @@ public class Platform_D3D9 : Platform_D3DCommon
 			{
 				return ReqShaderVersions;
 			}
-			ReqShaderVersions = ExtractPossibleVersions(typeof(ShaderModels), CommandLineParser.GetOption<string>(CommandLineOptions.ShaderModel.ToString()));
+			string option = CommandLineParser.GetOption<string>(CommandLineOptions.ShaderModel.ToString());
+			ReqShaderVersions = ExtractPossibleVersions(typeof(ShaderModels), option, PossibleShaderVersions);
 			return ReqShaderVersions;
 		}
 	}
 
 	protected override string D3DSDKEnvironmentVariable => "DXSDK_DIR";
 
-	protected override string D3DFXCExtraOptions => "/O3";
+	protected override string D3DFXCExtraOptions
+	{
+		get
+		{
+			string option = CommandLineParser.GetOption(CommandLineParser.Options.Config);
+			switch (option)
+			{
+			case "Debug":
+			case "DebugOpt":
+				return "/Zi";
+			case "Release":
+				return "/Zi /O3";
+			case "Shipping":
+				return "/O3 /Qstrip_reflect /Qstrip_debug";
+			default:
+				throw new Exception("Unsupported configuration type: " + option);
+			}
+		}
+	}
 
-	protected override string GetHeaderFileAdditionalIncludes => "#include <windows.h> // BYTE\n";
+	protected override void writeHeaderPreamble(IndentStreamWriter headerFile)
+	{
+		base.writeHeaderPreamble(headerFile);
+		headerFile.Write("typedef unsigned char BYTE;\n");
+	}
 
 	public override string GeneratePipelineHeaderExtras(ShaderPipeline pipeline)
 	{
@@ -83,8 +106,12 @@ public class Platform_D3D9 : Platform_D3DCommon
 		text += "    unsigned char UsageIndex; /* D3DDECLUSAGE_INDEX */\n";
 		text += "};\n\n";
 		text += "char           NumAttribs;\n";
+		text += "enum {\n";
 		object obj = text;
-		return string.Concat(obj, "VertexAttrDesc Attributes[", num, "];\n");
+		text = string.Concat(obj, "    MaxVertexAttributes = ", num, "\n");
+		text += "};\n";
+		object obj2 = text;
+		return string.Concat(obj2, "VertexAttrDesc Attributes[", num, "];\n");
 	}
 
 	public override string GeneratePipelineSourceExtras(ShaderVersion ver, ShaderPipeline pipeline, ShaderLinkedSource src)
@@ -96,7 +123,7 @@ public class Platform_D3D9 : Platform_D3DCommon
 			return base.GeneratePipelineSourceExtras(ver, pipeline, src);
 		}
 		List<ShaderVariable> list = src.VariableList.FindAll((ShaderVariable v) => v.VarType == ShaderVariable.VariableType.Variable_Attribute);
-		bool flag = src.PostFunctions.Find((string f) => f == "Instanced") != null;
+		src.PostFunctions.Find((string f) => f == "Instanced");
 		string text3 = text;
 		text = text3 + text2 + "/* NumAttribs */    " + list.Count + ",\n";
 		text = text + text2 + "/* Attributes */    {\n";

@@ -12,7 +12,7 @@ public class Platform_D3D1x : Platform_D3DCommon
 	{
 		[CommandLineOption(CmdLineOptionType.OptionType_String, "featurelevels", null, "The comma separated list of shader model(s) required (see -listfl).", null)]
 		FeatureLevel,
-		[CommandLineOption(CmdLineOptionType.OptionType_Action, "listfl", "", "", typeof(ListD3D1xFeatureLevelAction))]
+		[CommandLineOption(CmdLineOptionType.OptionType_Action, "listfl", null, "Lists the possible feature levels (use with -featureLevels)", typeof(ListD3D1xFeatureLevelAction))]
 		ListFeatureLevels
 	}
 
@@ -28,9 +28,9 @@ public class Platform_D3D1x : Platform_D3DCommon
 		D3D_FEATURE_LEVEL_11_0
 	}
 
-	private List<ShaderVersion> ReqShaderVersions = null;
+	protected List<ShaderVersion> ReqShaderVersions;
 
-	private List<ShaderVersion> PosShaderVersions = null;
+	protected List<ShaderVersion> PosShaderVersions;
 
 	public override List<ShaderVersion> PossibleShaderVersions
 	{
@@ -53,7 +53,8 @@ public class Platform_D3D1x : Platform_D3DCommon
 			{
 				return ReqShaderVersions;
 			}
-			ReqShaderVersions = ExtractPossibleVersions(typeof(FeatureLevels), CommandLineParser.GetOption<string>(CommandLineOptions.FeatureLevel.ToString()));
+			string option = CommandLineParser.GetOption<string>(CommandLineOptions.FeatureLevel.ToString());
+			ReqShaderVersions = ExtractPossibleVersions(typeof(FeatureLevels), option, PossibleShaderVersions);
 			return ReqShaderVersions;
 		}
 	}
@@ -61,8 +62,6 @@ public class Platform_D3D1x : Platform_D3DCommon
 	protected override string D3DSDKEnvironmentVariable => "DXSDK_DIR";
 
 	protected override string D3DFXCExtraOptions => "/O3";
-
-	protected override string GetHeaderFileAdditionalIncludes => "#include <windows.h> // BYTE\n";
 
 	protected override string GetBinaryShaderDeclaration(ShaderPipeline pipeline)
 	{
@@ -106,8 +105,12 @@ public class Platform_D3D1x : Platform_D3DCommon
 			text += "    unsigned      Format; // DXGI_FORMAT\n";
 			text += "};\n\n";
 			text += "char           NumAttribs;\n";
+			text += "enum {\n";
 			object obj = text;
-			text = string.Concat(obj, "VertexAttrDesc Attributes[", num, "];\n");
+			text = string.Concat(obj, "    MaxVertexAttributes = ", num, "\n");
+			text += "};\n";
+			object obj2 = text;
+			text = string.Concat(obj2, "VertexAttrDesc Attributes[", num, "];\n");
 			break;
 		}
 		}
@@ -196,5 +199,11 @@ public class Platform_D3D1x : Platform_D3DCommon
 			text = base.GeneratePipelineSourceExtras(ver, pipeline, src);
 		}
 		return text;
+	}
+
+	protected override void writeHeaderPreamble(IndentStreamWriter headerFile)
+	{
+		base.writeHeaderPreamble(headerFile);
+		headerFile.Write("typedef unsigned char BYTE;\n");
 	}
 }
